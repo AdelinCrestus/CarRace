@@ -10,6 +10,7 @@ using namespace std;
 using namespace m1;
 
 
+#define VITEZA 10
 
 /*
  *  To find out more about `FrameStart`, `Update`, `FrameEnd`
@@ -31,6 +32,7 @@ Tema2::~Tema2()
 
 void Tema2::Init()
 {
+    
    polygonMode = GL_FILL;
 
     Mesh* mesh = new Mesh("box");
@@ -204,7 +206,20 @@ void Tema2::Init()
         VertexFormat(glm::vec3(-1.93, 0, 0.65), color), // Q5
         
     };
-    //F1 trb mutat in origine
+
+    renderCameraTarget = true;
+    camera = new camera::Camera();
+    camera->Set(track_vertices.at(0).position, track_vertices.at(2).position, glm::vec3(0, 1, 0));
+    left = -5;
+    right = 5;
+    buttom = -5;
+    top = 5;
+
+    fov = RADIANS(60);
+
+    translateX = track_vertices.at(2).position.x;
+    translateY = track_vertices.at(2).position.y;
+    translateZ = track_vertices.at(2).position.z;
     vector<Segment> segments_track, segments_red, segments_blue ;
     for (int i = 0; i < track_vertices.size() - 1; i++)
     {
@@ -283,12 +298,11 @@ void Tema2::FrameStart()
 }
 
 void Tema2::RenderScene() {
-    /*modelMatrix = glm::mat4(1);
-    modelMatrix *= transform3D::Translate(-2.5f, 0.5f, -1.5f);
-    modelMatrix *= transform3D::Translate(translateX, translateY, translateZ);
-    RenderMesh(meshes["box"], shaders["VertexNormal"], modelMatrix);
+    
+    //modelMatrix *= transform3D::Translate(-2.5f, 0.5f, -1.5f);
+    
 
-    modelMatrix = glm::mat4(1);
+    /*modelMatrix = glm::mat4(1);
     modelMatrix *= transform3D::Translate(0.0f, 0.5f, -1.5f);
     modelMatrix *= transform3D::Scale(scaleX, scaleY, scaleZ);
     RenderMesh(meshes["box"], shaders["Simple"], modelMatrix);
@@ -308,6 +322,11 @@ void Tema2::RenderScene() {
 
     modelMatrix *= transform3D::Translate(-median.x, -median.y, -median.z);
     RenderMesh(meshes["pista"], shaders["VertexColor"], modelMatrix);
+
+    modelMatrix *= transform3D::Translate(translateX, translateY, translateZ);
+    //modelMatrix *= transform3D::Translate(-median.x, -median.y, -median.z);
+    modelMatrix *= transform3D::Scale(0.1, 0.1, 0.1);
+    RenderMesh(meshes["box"], shaders["VertexNormal"], modelMatrix);
     
     modelMatrix = glm::mat4(1);
     modelMatrix *= transform3D::Translate(-resolution.x/2, -0.5,-resolution.y/2 );
@@ -348,7 +367,7 @@ void Tema2::FrameEnd()
 void Tema2::OnInputUpdate(float deltaTime, int mods)
 {
     // TODO(student): Add transformation logic
-   /* if (window->KeyHold(GLFW_KEY_S))
+    /*if (window->KeyHold(GLFW_KEY_S))
     {
         translateY -= 2 * deltaTime;
     }
@@ -432,7 +451,7 @@ void Tema2::OnInputUpdate(float deltaTime, int mods)
         angularStepOY_gen += VITEZA * deltaTime;
     }
 
-*/
+    */
 
 
 }
