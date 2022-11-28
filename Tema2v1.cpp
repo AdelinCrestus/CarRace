@@ -8,7 +8,7 @@ using namespace std;
 using namespace m1;
 
 
-#define distRed 0.05
+#define distRed 0.15
 #define distBlue 0.05
 
 /*
@@ -56,7 +56,7 @@ void Tema2v1::Init()
     
     fov = RADIANS(60);
 
-    glm::vec3 color = glm::vec3(0.5, 0.5, 0.5);
+    glm::vec3 color = glm::vec3(0.167, 0.172, 0.1686);
     vector<VertexFormat> track_vertices
     {
 
@@ -209,7 +209,7 @@ void Tema2v1::Init()
         segments_track.push_back(Segment(track_vertices.at(i), track_vertices.at(i + 1)));
     }
     segments_track.push_back(Segment(track_vertices.at(track_vertices.size() - 1), track_vertices.at(0)));
-    vector<VertexFormat> red_and_blue_vertices_track;
+    
 
     glm::vec3 up = glm::vec3(0, 1, 0);
     for (Segment seg : segments_track)
@@ -245,11 +245,43 @@ void Tema2v1::Init()
         indices.push_back(1);
         indices.push_back(0);
     }
+    glm::vec3 culoare_masinuta = glm::vec3(0, 0, 1);
+    vector<VertexFormat> car_vertices
+    {
+        VertexFormat(glm::vec3(-1,-1,-2),culoare_masinuta), // A 0
+        VertexFormat(glm::vec3(1,-1,-2),culoare_masinuta), // B 1
+        VertexFormat(glm::vec3(-1,1,-2),culoare_masinuta), // C 2
+        VertexFormat(glm::vec3(1, 1,-2),culoare_masinuta), // D 3
+        VertexFormat(glm::vec3(1,-1,2),culoare_masinuta), // E 4 
+        VertexFormat(glm::vec3(1,1,2),culoare_masinuta), // F 5 
+        VertexFormat(glm::vec3(-1,-1,2),culoare_masinuta), // G 6
+        VertexFormat(glm::vec3(-1,1,2),culoare_masinuta) // H 7
+    };
+
+    vector<unsigned int> car_indices
+    {
+        0, 1, 2,  // ABC
+        2, 1, 3,  // CBD
+        3, 4, 1, // DEB
+        3, 5, 4,  // DFE
+        7, 5, 4,  //HFE
+        7, 5, 6, //HFG
+        2, 6, 0, //CGA
+        2, 7, 6, //CHG
+        2, 3, 5, //CDF
+        2, 5, 7, //CFH
+        0, 1, 4, //AEB
+        0, 4, 6  //AGE
+    };
 
 
     meshes["pista"] = new Mesh("pista");
     meshes["pista"]->SetDrawMode(GL_TRIANGLES);
     meshes["pista"]->InitFromData(red_and_blue_vertices_track, indices);
+
+    meshes["car"] = new Mesh("car");
+    meshes["car"]->SetDrawMode(GL_TRIANGLES);
+    meshes["car"]->InitFromData(car_vertices, car_indices);
 
 
     projectionMatrix = glm::perspective(fov, window->props.aspectRatio, 0.01f, 200.0f);
@@ -258,6 +290,7 @@ void Tema2v1::Init()
     modelMatrix = glm::mat4(1);
     modelMatrix *= transform3D::Scale(10, 10, 10);
     modelMatrix *= transform3D::Translate(-median.x, -median.y, -median.z);
+    //modelMatrix *= transform3D::Translate(0, 0.1, 0);
     glm::vec4 start_camera = glm::vec4(track_vertices.at(0).position.x, track_vertices.at(0).position.y, track_vertices.at(0).position.z,1);
     start_camera = modelMatrix * start_camera;
 
@@ -267,21 +300,39 @@ void Tema2v1::Init()
     camera = new my_camera::Camera();
     camera->Set(glm::vec3(start_camera) + glm::vec3(0,0.5,0), glm::vec3(orientare_camera) + glm::vec3(0, 0.5, 0), glm::vec3(0, 1, 0));
 
-    poz_obiect = camera->GetTargetPosition() * glm::vec3(1, 0, 1) + glm::vec3(0, 0.1, 0);
+    poz_obiect = camera->GetTargetPosition() * glm::vec3(1, 0, 1);
+    float initial_rotation_target = acos(glm::dot(camera->forward, glm::vec3(0, 0, -1)));
+    rotateCarMatrix *= transform3D::RotateOY(-initial_rotation_target);
+    
 }
 
 
 void Tema2v1::FrameStart()
 {
     // Clears the color buffer (using the previously set color) and depth buffer
-    glClearColor(0, 0, 0, 1);
+    glClearColor(0.529, 0.808, 0.922, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glm::ivec2 resolution = window->GetResolution();
+    resolution = window->GetResolution();
+   
+    vector<VertexFormat> grass_vertices
+    {
+        VertexFormat(glm::vec3(0, 0, 0), glm::vec3(0,1,0)),
+        VertexFormat(glm::vec3(0, 0, resolution.y), glm::vec3(0,1,0)),
+        VertexFormat(glm::vec3(resolution.x, 0, resolution.y), glm::vec3(0,1,0)),
+        VertexFormat(glm::vec3(resolution.x, 0, 0), glm::vec3(0,1,0))
+    };
+    vector<unsigned int> grass_indices
+    {
+        0,2,1,0,3,2
+    };
+    meshes["grass"] = new Mesh("grass");
+    meshes["grass"]->SetDrawMode(GL_TRIANGLES);
+    meshes["grass"]->InitFromData(grass_vertices, grass_indices);
+    
     // Sets the screen area where to draw
     glViewport(0, 0, resolution.x, resolution.y);
 
-    
 }
 
 
@@ -289,16 +340,17 @@ void Tema2v1::Update(float deltaTimeSeconds)
 {
 
    
-
+    RenderMesh(meshes["grass"], shaders["VertexColor"], transform3D::Translate(-resolution.x / 2, -0.5, -resolution.y / 2));
   
     RenderMesh(meshes["pista"], shaders["VertexColor"], modelMatrix);
 
         
     glm::mat4 modelMatrix_car = modelMatrix;
-    modelMatrix_car = transform3D::Translate(poz_obiect.x, poz_obiect.y, poz_obiect.z); 
+    modelMatrix_car = transform3D::Translate(poz_obiect.x, 0, poz_obiect.z); 
     modelMatrix_car *= transform3D::Scale(0.1, 0.1, 0.1);
-    modelMatrix_car *= rotateCarMatrix;
-    RenderMesh(meshes["box"], shaders["VertexNormal"], modelMatrix_car);
+    modelMatrix_car *= transform3D::Translate(0, 1.2, 0);
+    modelMatrix_car *= rotateCarMatrix; 
+    RenderMesh(meshes["car"], shaders["VertexColor"],modelMatrix_car);
 
     /* {
         glm::mat4 modelMatrix = glm::mat4(1);
@@ -358,7 +410,7 @@ void Tema2v1::Update(float deltaTimeSeconds)
 
 void Tema2v1::FrameEnd()
 {
-    DrawCoordinateSystem(camera->GetViewMatrix(), projectionMatrix);
+    //DrawCoordinateSystem(camera->GetViewMatrix(), projectionMatrix);
 }
 
 
@@ -382,6 +434,21 @@ void Tema2v1::RenderMesh(Mesh * mesh, Shader * shader, const glm::mat4 & modelMa
  *  how they behave, see `input_controller.h`.
  */
 
+bool exist_in_zone(glm::vec3 point1, glm::vec3 point2, glm::vec3 position)
+{
+    
+    if (position.x > point1.x &&
+        position.x < point2.x &&
+        position.z < point1.z &&
+        position.z > point2.z)
+    {
+       
+        return true;
+    }
+   
+    return false;
+}
+
 
 void Tema2v1::OnInputUpdate(float deltaTime, int mods)
 {
@@ -389,11 +456,68 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
     if (window->MouseHold(GLFW_MOUSE_BUTTON_RIGHT))
     {
         float cameraSpeed = 2.0f;
-
+        
         if (window->KeyHold(GLFW_KEY_W)) {
+            printf("W apasat\n");
+            glm::vec3 poz_obiect_viit = camera->GetTargetPosition() + glm::normalize(camera->forward) * cameraSpeed * deltaTime;
+            bool in_zone = false;
+            
+            for (int i = 0; i < red_and_blue_vertices_track.size() - 2 && !in_zone; i+= 2)
+            {
+                glm::vec4 v1 = glm::vec4(red_and_blue_vertices_track.at(i).position, 1);
+                glm::vec4 v2 = glm::vec4(red_and_blue_vertices_track.at(i+1).position, 1);
+                glm::vec4 v3 = glm::vec4(red_and_blue_vertices_track.at(i+2).position, 1);
+                glm::vec4 v4 = glm::vec4(red_and_blue_vertices_track.at(i+3).position, 1);
+                v1 = modelMatrix * v1;
+                v2 = modelMatrix * v2;
+                v3 = modelMatrix * v3;
+                v4 = modelMatrix * v4;
+                glm::vec3 point1 = glm::vec3(
+                    glm::min(glm::min(v1.x, v2.x), glm::min(v3.x, v4.x)),
+                        0,
+                    glm::max(glm::max(v1.z, v2.z), glm::max(v3.z, v4.z)));
+                glm::vec3 point2 = glm::vec3(
+                    glm::max(glm::max(v1.x, v2.x), glm::max(v3.x, v4.x)),
+                    0,
+                    glm::min(glm::min(v1.z, v2.z), glm::min(v3.z, v4.z)));
+
+                  in_zone = exist_in_zone(point1, point2, poz_obiect_viit);
+                
+            }
+            /*if (!in_zone)
+            {
+                int size = red_and_blue_vertices_track.size();
+                glm::vec4 v1 = glm::vec4(red_and_blue_vertices_track.at(size-2).position, 1);
+                glm::vec4 v2 = glm::vec4(red_and_blue_vertices_track.at(size - 1).position, 1);
+                glm::vec4 v3 = glm::vec4(red_and_blue_vertices_track.at(0).position, 1);
+                glm::vec4 v4 = glm::vec4(red_and_blue_vertices_track.at(1).position, 1);
+                v1 = modelMatrix * v1;
+                v2 = modelMatrix * v2;
+                v3 = modelMatrix * v3;
+                v4 = modelMatrix * v4;
+                glm::vec3 point1 = glm::vec3(
+                    glm::min(v1.x, v2.x),
+                    0,
+                    glm::max(v1.z, v3.z));
+                glm::vec3 point2 = glm::vec3(
+                    glm::max(v3.x, v4.x),
+                    0,
+                    glm::min(v2.z, v4.z));
+
+                in_zone = exist_in_zone(point1, point2, poz_obiect_viit);
+
+            }*/
+
             // TODO(student): Translate the camera forward
-            camera->TranslateForward(cameraSpeed * deltaTime);
-            poz_obiect = camera->GetTargetPosition() - glm::vec3(0, 0.3, 0);
+            if (in_zone)
+            {
+                camera->TranslateForward(cameraSpeed * deltaTime);
+
+
+                poz_obiect = camera->GetTargetPosition();
+            }
+            else
+                printf("boule iesi pe camp cu ea la pascut\n");
         }
 
         if (window->KeyHold(GLFW_KEY_A)) {
@@ -407,7 +531,7 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         if (window->KeyHold(GLFW_KEY_S)) {
             // TODO(student): Translate the camera backward
             camera->TranslateForward(-cameraSpeed * deltaTime);
-            poz_obiect = camera->GetTargetPosition() - glm::vec3(0, 0.3, 0);
+            poz_obiect = camera->GetTargetPosition();
         }
 
         if (window->KeyHold(GLFW_KEY_D)) {
@@ -498,7 +622,7 @@ void Tema2v1::OnKeyRelease(int key, int mods)
 void Tema2v1::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
 {
     // Add mouse move event
-   /*
+   
     if (window->MouseHold(GLFW_MOUSE_BUTTON_RIGHT))
     {
         float sensivityOX = 0.001f;
@@ -523,7 +647,7 @@ void Tema2v1::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
             camera->RotateThirdPerson_OY(sensivityOY * deltaX);
         }
     }
-    */
+    
     
 }
 

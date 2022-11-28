@@ -54,5 +54,7 @@ namespace m1
         glm::mat4 rotateCarMatrix;
         glm::vec3 poz_obiect;
         //glm::vec3 poz_camera;
+
+        glm::vector<VertexFormat> red_and_blue_vertices_track;
     };
 }   // namespace m1
