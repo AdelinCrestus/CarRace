@@ -8,13 +8,21 @@ using namespace std;
 using namespace m1;
 
 
+
 #define distRed 0.15
 #define distBlue 0.05
+#define epsilon 0.0001
 
 /*
  *  To find out more about `FrameStart`, `Update`, `FrameEnd`
  *  and the order in which they are called, see `world.cpp`.
  */
+
+struct Square
+{
+    Square(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3, glm::vec3 v4) : v1(v1), v2(v2), v3(v3), v4(v4) {};
+    glm::vec3 v1, v2, v3, v4;
+};
 
 
 Tema2v1::Tema2v1()
@@ -449,6 +457,60 @@ bool exist_in_zone(glm::vec3 point1, glm::vec3 point2, glm::vec3 position)
     return false;
 }
 
+bool exist_in_triangles(Square square, glm::vec3 pos)
+{
+    // pt p1 p2 p3 si p2 p3 p4
+
+    glm::vec3 p1p2 = square.v2 - square.v1;
+    glm::vec3 p1p3 = square.v3 - square.v1;
+    
+    glm::vec3 res = glm::cross(p1p2, p1p3);
+    float area = glm::sqrt(glm::dot(res,res)) / 2;
+
+    glm::vec3 Pp1 = square.v1 - pos;
+    glm::vec3 Pp2 = square.v2 - pos;
+    res = glm::cross(Pp1, Pp2);
+    float area1 = glm::sqrt(glm::dot(res,res)) / 2;
+
+    glm::vec3 Pp3 = square.v3 - pos;
+    res = glm::cross(Pp1, Pp3);
+    float area2 = glm::sqrt(glm::dot(res, res)) / 2;
+    
+
+    res = glm::cross(Pp2, Pp3);
+    float area3 = glm::sqrt(glm::dot(res, res)) / 2;
+    if ( glm::fabs(area - area1 - area2 - area3) <= epsilon)
+    {
+       
+        return true;
+    }
+
+    glm::vec3 p2p3 = square.v3 - square.v2;
+    glm::vec3 p2p4 = square.v4 - square.v2;
+    res = glm::cross(p2p3, p2p4);
+    area = glm::sqrt(glm::dot(res, res)) / 2;
+
+    glm::vec3 Pp4 = square.v4 - pos;
+     Pp2 = square.v2 - pos;
+     res = glm::cross(Pp4, Pp2);
+    area1 = glm::sqrt(glm::dot(res, res)) / 2;
+
+     Pp3 = square.v3 - pos;
+     res = glm::cross(Pp2, Pp3);
+    area2 = glm::sqrt(glm::dot(res, res)) / 2;
+
+    res = glm::cross(Pp4, Pp3);
+  area3 = glm::sqrt(glm::dot(res, res)) / 2;
+    if (glm::fabs(area - area1 - area2 - area3) <= epsilon)
+    {
+        return true;
+    }
+
+
+    return false;
+
+}
+
 
 void Tema2v1::OnInputUpdate(float deltaTime, int mods)
 {
@@ -460,18 +522,18 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         if (window->KeyHold(GLFW_KEY_W)) {
             printf("W apasat\n");
             glm::vec3 poz_obiect_viit = camera->GetTargetPosition() + glm::normalize(camera->forward) * cameraSpeed * deltaTime;
-            bool in_zone = false;
-            
-            for (int i = 0; i < red_and_blue_vertices_track.size() - 2 && !in_zone; i+= 2)
+            bool in_zone;
+            vector<Square> patrate;
+            for (int i = 0; i < red_and_blue_vertices_track.size() - 3; i+= 2)
             {
                 glm::vec4 v1 = glm::vec4(red_and_blue_vertices_track.at(i).position, 1);
                 glm::vec4 v2 = glm::vec4(red_and_blue_vertices_track.at(i+1).position, 1);
                 glm::vec4 v3 = glm::vec4(red_and_blue_vertices_track.at(i+2).position, 1);
                 glm::vec4 v4 = glm::vec4(red_and_blue_vertices_track.at(i+3).position, 1);
-                v1 = modelMatrix * v1;
-                v2 = modelMatrix * v2;
-                v3 = modelMatrix * v3;
-                v4 = modelMatrix * v4;
+                v1 = modelMatrix * v1 * glm::vec4(1,0, 1, 1);
+                v2 = modelMatrix * v2 * glm::vec4(1, 0, 1, 1);
+                v3 = modelMatrix * v3 * glm::vec4(1, 0, 1, 1);
+                v4 = modelMatrix * v4 * glm::vec4(1, 0, 1, 1);
                 glm::vec3 point1 = glm::vec3(
                     glm::min(glm::min(v1.x, v2.x), glm::min(v3.x, v4.x)),
                         0,
@@ -482,19 +544,23 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
                     glm::min(glm::min(v1.z, v2.z), glm::min(v3.z, v4.z)));
 
                   in_zone = exist_in_zone(point1, point2, poz_obiect_viit);
+                  if (in_zone)
+                  {
+                      patrate.push_back(Square(v1, v2, v3, v4));
+                  }
                 
             }
-            /*if (!in_zone)
+            
             {
                 int size = red_and_blue_vertices_track.size();
                 glm::vec4 v1 = glm::vec4(red_and_blue_vertices_track.at(size-2).position, 1);
                 glm::vec4 v2 = glm::vec4(red_and_blue_vertices_track.at(size - 1).position, 1);
                 glm::vec4 v3 = glm::vec4(red_and_blue_vertices_track.at(0).position, 1);
                 glm::vec4 v4 = glm::vec4(red_and_blue_vertices_track.at(1).position, 1);
-                v1 = modelMatrix * v1;
-                v2 = modelMatrix * v2;
-                v3 = modelMatrix * v3;
-                v4 = modelMatrix * v4;
+                v1 = modelMatrix * v1  * glm::vec4(1,0, 1, 1);
+                v2 = modelMatrix * v2 * glm::vec4(1, 0, 1, 1);
+                v3 = modelMatrix * v3 * glm::vec4(1, 0, 1, 1);
+                v4 = modelMatrix * v4 * glm::vec4(1, 0, 1, 1);
                 glm::vec3 point1 = glm::vec3(
                     glm::min(v1.x, v2.x),
                     0,
@@ -505,11 +571,25 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
                     glm::min(v2.z, v4.z));
 
                 in_zone = exist_in_zone(point1, point2, poz_obiect_viit);
+                if (in_zone)
+                {
+                    patrate.push_back(Square(v1, v2,v3, v4));
+                }
 
-            }*/
+            }
 
+            bool in_triangles = false;
+
+            for (int i = 0; i < patrate.size() && !in_triangles; i++)
+            {
+                Square patrat = patrate.at(i);
+                if (exist_in_triangles(patrat, poz_obiect_viit * glm::vec3(1, 0, 1)))
+                {
+                    in_triangles = true;
+                }
+            }
             // TODO(student): Translate the camera forward
-            if (in_zone)
+            if (in_triangles)
             {
                 camera->TranslateForward(cameraSpeed * deltaTime);
 
@@ -553,6 +633,41 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         }
         */
     }
+    else
+    {
+    float cameraSpeed = 2.0f;
+
+    if (window->KeyHold(GLFW_KEY_W)) {
+        // TODO(student): Translate the camera forward
+        camera->TranslateForward(cameraSpeed * deltaTime);
+    }
+
+    if (window->KeyHold(GLFW_KEY_A)) {
+        // TODO(student): Translate the camera to the left
+        camera->TranslateRight(-cameraSpeed * deltaTime);
+    }
+
+    if (window->KeyHold(GLFW_KEY_S)) {
+        // TODO(student): Translate the camera backward
+        camera->TranslateForward(-cameraSpeed * deltaTime);
+
+    }
+
+    if (window->KeyHold(GLFW_KEY_D)) {
+        // TODO(student): Translate the camera to the right
+        camera->TranslateRight(cameraSpeed * deltaTime);
+    }
+
+    if (window->KeyHold(GLFW_KEY_Q)) {
+        // TODO(student): Translate the camera downward
+        camera->TranslateUpward(-cameraSpeed * deltaTime);
+    }
+
+    if (window->KeyHold(GLFW_KEY_E)) {
+        // TODO(student): Translate the camera upward
+        camera->TranslateUpward(cameraSpeed * deltaTime);
+    }
+ }
 
     // TODO(student): Change projection parameters. Declare any extra
     // variables you might need in the class header. Inspect this file
@@ -623,7 +738,7 @@ void Tema2v1::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
 {
     // Add mouse move event
    
-    if (window->MouseHold(GLFW_MOUSE_BUTTON_RIGHT))
+    if (window->MouseHold(GLFW_MOUSE_BUTTON_LEFT))
     {
         float sensivityOX = 0.001f;
         float sensivityOY = 0.001f;
@@ -672,3 +787,4 @@ void Tema2v1::OnMouseScroll(int mouseX, int mouseY, int offsetX, int offsetY)
 void Tema2v1::OnWindowResize(int width, int height)
 {
 }
+
