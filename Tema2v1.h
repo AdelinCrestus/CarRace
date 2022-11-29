@@ -55,7 +55,11 @@ namespace m1
         glm::mat4 rotateCarMatrix;
         glm::vec3 poz_obiect;
         //glm::vec3 poz_camera;
-
+        float fractiune_npc;
+        int indice_last_point_npc;
+        glm::vector<glm::vec3> points_npc_car;
         glm::vector<VertexFormat> red_and_blue_vertices_track;
+        float cameraSpeed;
+        glm::vec3 median;
     };
 }   // namespace m1
