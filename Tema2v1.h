@@ -47,6 +47,14 @@ namespace m1
             Segment(VertexFormat p1, VertexFormat p2) : p1(p1), p2(p2) {};
             VertexFormat p1, p2;
         };
+        struct Car
+        {
+            //Car(glm::vector<glm::vec3> trajectory, int indice_last_point, float fractiune_npc) : trajectory(trajectory), indice_last_point(indice_last_point), fractiune_npc(fractiune_npc) {};
+            
+            glm::vector<glm::vec3> trajectory;
+            int indice_last_point;
+            float fractiune_npc;
+        };
 
         glm::ivec2 resolution;
         float translateX, translateY, translateZ;
@@ -58,8 +66,21 @@ namespace m1
         float fractiune_npc;
         int indice_last_point_npc;
         glm::vector<glm::vec3> points_npc_car;
+        glm::vector<glm::vec3> points_npc_car2;
+        glm::vector<glm::vec3> points_npc_cars[2];
         glm::vector<VertexFormat> red_and_blue_vertices_track;
+        glm::vector<glm::vec3> positions_trees;
+        Car cars_npc[2];
         float cameraSpeed;
         glm::vec3 median;
+        float scaleCar;
+        float scaleRoad;
+        float yCar;
+        float YCamera;
+        float yTrunk;
+        float yLeaves;
+        float scaleZTrunk;
+        float scaleTree;
+        
     };
 }   // namespace m1

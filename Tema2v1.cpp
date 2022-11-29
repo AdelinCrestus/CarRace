@@ -11,12 +11,15 @@ using namespace m1;
 
 #define distRed 0.15
 #define distBlue 0.05
+#define distTree 0.25
 #define epsilon 0.0001
 #define dist_npc_car1 0.10
-#define SpeedNFC 20 
+#define dist_npc_car2 0.02
+#define SpeedNFC 4 
 #define SpeedPlayerMAX 5
-#define NR_Vertices_Circle 11
+#define NR_Vertices_Circle 7
 #define PI 3.1415
+
 
 /*
  *  To find out more about `FrameStart`, `Update`, `FrameEnd`
@@ -28,6 +31,8 @@ struct Square
     Square(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3, glm::vec3 v4) : v1(v1), v2(v2), v3(v3), v4(v4) {};
     glm::vec3 v1, v2, v3, v4;
 };
+
+
 
 
 Tema2v1::Tema2v1()
@@ -213,8 +218,11 @@ void Tema2v1::Init()
     
     
     glm::vec3 up = glm::vec3(0, 1, 0);
+    int contor = 0;
+    int nr_npc_car;
     for (Segment seg : segments_track)
     {
+        nr_npc_car = 0;
         glm::vec3 D = seg.p2.position - seg.p1.position;
 
         glm::vec3 P = glm::normalize(glm::cross(D, up));
@@ -225,12 +233,35 @@ void Tema2v1::Init()
         glm::vec3 poz_car1 = seg.p1.position + glm::vec3(P.x * dist_npc_car1, P.y * dist_npc_car1, P.z * dist_npc_car1);
         red_and_blue_vertices_track.push_back(VertexFormat(poz_R, color));
         red_and_blue_vertices_track.push_back(VertexFormat(poz_A, color));
-        points_npc_car.push_back(poz_car1);
+        
+        
+        points_npc_cars[nr_npc_car++].push_back(poz_car1);
+        glm::vec3 poz_car2 = seg.p1.position - glm::vec3(P.x * dist_npc_car2, P.y * dist_npc_car2, P.z * dist_npc_car2);
+        points_npc_cars[nr_npc_car++].push_back(poz_car2);
+        
+        
+
+        if (contor % 15 == 7)
+        {
+            glm::vec3 poz_tree = seg.p1.position + glm::vec3(P.x * distTree, P.y * distTree, P.z * distTree);
+            positions_trees.push_back(poz_tree);
+        }
+        else if (contor % 15 == 14)
+        {
+            glm::vec3 poz_tree = seg.p1.position - glm::vec3(P.x * distTree, P.y * distTree, P.z * distTree);
+            positions_trees.push_back(poz_tree);
+        }
+        contor++;
     }
 
-    fractiune_npc = 0;
-    indice_last_point_npc = 0;
-
+    for (int i = 0; i < nr_npc_car; i++)
+    {
+       
+        //cars_npc[i](Car(points_npc_cars[i], rand() % points_npc_cars[i].size(), 0.0));
+        cars_npc[i].fractiune_npc = 0.0;
+        cars_npc[i].indice_last_point = rand() % points_npc_cars[i].size();
+        cars_npc[i].trajectory = points_npc_cars[i];
+    }
     vector<unsigned int> indices;
     int i = 0;
     for (int j = 0; j < track_vertices.size() - 1; j++)
@@ -345,7 +376,10 @@ void Tema2v1::Init()
         {
             for (int z = 0; z < pow(NR_Vertices_Circle, 2); z++)
             {
-                if (x != y && x != z && y != z && glm::distance(glm::vec3(x, y, z), glm::vec3(0, 0, 0)) == Raza);
+                if (x != y && x != z && y != z && 
+                    glm::distance(tree_vertices.at(x).position, tree_vertices.at(y).position) <= pow(epsilon,100) * PI*Raza/NR_Vertices_Circle && 
+                    glm::distance(tree_vertices.at(x).position, tree_vertices.at(z).position) <= pow(epsilon, 100) * PI * Raza / NR_Vertices_Circle &&
+                    glm::distance(tree_vertices.at(y).position, tree_vertices.at(y).position) <= pow(epsilon, 100) * PI * Raza / NR_Vertices_Circle);
                 {
                     tree_indices.push_back(x);
                     tree_indices.push_back(y);
@@ -360,24 +394,28 @@ void Tema2v1::Init()
     meshes["tree"]->InitFromData(tree_vertices, tree_indices);
 
     projectionMatrix = glm::perspective(fov, window->props.aspectRatio, 0.01f, 200.0f);
+    scaleRoad = 10;
 
-    median = glm::vec3(-0.8, 0, 0.2);
+    median = glm::vec3(-0.8, 0, 0.2); // coordonatele din jumatea circuitului
     modelMatrix = glm::mat4(1);
-    modelMatrix *= transform3D::Scale(10, 10, 10);
+    modelMatrix *= transform3D::Scale(scaleRoad, scaleRoad, scaleRoad);
     modelMatrix *= transform3D::Translate(-median.x, -median.y, -median.z);
-    //modelMatrix *= transform3D::Translate(0, 0.1, 0);
+    
     glm::vec4 start_camera = glm::vec4(track_vertices.at(0).position.x, track_vertices.at(0).position.y, track_vertices.at(0).position.z,1);
     start_camera = modelMatrix * start_camera;
 
-
+    yCar = 0.1001;
+    YCamera = 0.5;
     glm::vec4 orientare_camera = glm::vec4(track_vertices.at(2).position.x, track_vertices.at(2).position.y, track_vertices.at(2).position.z, 1);
     orientare_camera = modelMatrix * orientare_camera;
     camera = new my_camera::Camera();
-    camera->Set(glm::vec3(start_camera) + glm::vec3(0,0.5,0), glm::vec3(orientare_camera) + glm::vec3(0, 0.5, 0), glm::vec3(0, 1, 0));
+    camera->Set(glm::vec3(start_camera) + glm::vec3(0,YCamera,0), glm::vec3(orientare_camera) + glm::vec3(0, YCamera, 0), glm::vec3(0, 1, 0));
 
     poz_obiect = camera->GetTargetPosition() * glm::vec3(1, 0, 1);
     float initial_rotation_target = acos(glm::dot(camera->forward, glm::vec3(0, 0, -1)));
     rotateCarMatrix *= transform3D::RotateOY(-initial_rotation_target);
+
+    scaleCar = 0.1;
     
 }
 
@@ -408,6 +446,9 @@ void Tema2v1::FrameStart()
     // Sets the screen area where to draw
     glViewport(0, 0, resolution.x, resolution.y);
 
+    scaleZTrunk = 2;
+    scaleTree = 2;
+
 }
 
 
@@ -423,68 +464,80 @@ void Tema2v1::Update(float deltaTimeSeconds)
     glm::mat4 modelMatrix_car;
     modelMatrix_car = transform3D::Translate(poz_obiect.x, 0, poz_obiect.z); 
     
-    modelMatrix_car *= transform3D::Translate(0, 0.1005, 0);
+    modelMatrix_car *= transform3D::Translate(0, yCar, 0); // 0.1005
     modelMatrix_car *= rotateCarMatrix; 
-    modelMatrix_car *= transform3D::Scale(0.1, 0.1, 0.1);
+    modelMatrix_car *= transform3D::Scale(scaleCar, scaleCar, scaleCar); //0.1
     RenderMesh(meshes["car"], shaders["VertexColor"],modelMatrix_car);
-
-    glm::mat4 modelMatrixCarNPC = modelMatrix;
-    int size = points_npc_car.size();
-    bool ultim = false;
-    if (indice_last_point_npc + 1 == size - 1)
-    {
-        indice_last_point_npc = 0;
-        ultim = true;
-    }
-    glm::vec3 dir = points_npc_car.at(indice_last_point_npc + 1) - points_npc_car.at(indice_last_point_npc);
-    fractiune_npc += deltaTimeSeconds * SpeedNFC ;
-    if (fractiune_npc >= 1)
-    {
-        fractiune_npc = 0;
-        indice_last_point_npc++;
-    }
-    float translateX_NPC = 0;
-    float translateZ_NPC = 0;
-    float rotate_car_npc = glm::acos(glm::dot(glm::normalize(dir), glm::vec3(0, 0, 1)));
-    if (ultim)
-    {
-        float translateX_NPC = points_npc_car.at(size - 1).x * (1 - fractiune_npc) + fractiune_npc * points_npc_car.at(0).x;
-        float translateZ_NPC = points_npc_car.at(size - 1).z * (1 - fractiune_npc) + fractiune_npc * points_npc_car.at(0).z;
-        ultim = false;
-        if (points_npc_car.at(size - 1).z < median.z)
+    for(int i = 0; i < 2; i++)
+    {//trb cu for
+        glm::mat4 modelMatrixCarNPC = modelMatrix;
+        int size = cars_npc[i].trajectory.size(); //car.trajectory.size();
+        bool ultim = false;
+        if (cars_npc[i].indice_last_point + 1 == size - 1)
         {
-            rotate_car_npc *= -1;
+            cars_npc[i].indice_last_point = 0;
+            ultim = true;
         }
-    }
-    else
-    {
-        translateX_NPC = points_npc_car.at(indice_last_point_npc).x * (1 - fractiune_npc) + fractiune_npc * points_npc_car.at(indice_last_point_npc + 1).x;
-        translateZ_NPC = points_npc_car.at(indice_last_point_npc).z * (1 - fractiune_npc) + fractiune_npc * points_npc_car.at(indice_last_point_npc + 1).z;
-        if (points_npc_car.at(indice_last_point_npc).z < median.z)
+        glm::vec3 dir = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1) - cars_npc[i].trajectory.at(cars_npc[i].indice_last_point);
+        
+        cars_npc[i].fractiune_npc = cars_npc[i].fractiune_npc + deltaTimeSeconds * SpeedNFC;
+        
+        if (cars_npc[i].fractiune_npc >= 1)
+        {    
+            cars_npc[i].fractiune_npc = 0;
+            cars_npc[i].indice_last_point++;
+        }
+        float translateX_NPC = 0;
+        float translateZ_NPC = 0;
+        float rotate_car_npc = glm::acos(glm::dot(glm::normalize(dir), glm::vec3(0, 0, 1)));
+        if (ultim)
         {
-            rotate_car_npc *= -1;
+            float translateX_NPC = cars_npc[i].trajectory.at(size - 1).x * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(0).x;
+            float translateZ_NPC = cars_npc[i].trajectory.at(size - 1).z * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(0).z;
+            ultim = false;
+            if (cars_npc[i].trajectory.at(size - 1).z < median.z)
+            {
+                rotate_car_npc *= -1;
+            }
         }
-    }
-    
-    modelMatrixCarNPC *= transform3D::Translate(translateX_NPC, 0, translateZ_NPC);
-    
-    
-    modelMatrixCarNPC *= transform3D::RotateOY(rotate_car_npc);
-    modelMatrixCarNPC *= transform3D::Translate(0, 0.01005, 0);
-    modelMatrixCarNPC *= transform3D::Scale(0.01, 0.01, 0.01);
-    RenderMesh(meshes["npc_car"], shaders["VertexColor"], modelMatrixCarNPC);
+        else
+        {
+            translateX_NPC = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point).x * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1).x;
+            translateZ_NPC = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point).z * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1).z;
+            if (cars_npc[i].trajectory.at(cars_npc[i].indice_last_point).z < median.z)
+            {
+                rotate_car_npc *= -1;
+            }
+        }
 
-    glm::mat4 modelMatrixTree =glm::mat4(1);
-    glm::vec3 pos = modelMatrix * glm::vec4(red_and_blue_vertices_track.at(0).position,1);
-    //modelMatrixTree *= transform3D::Translate(0, -2, 0)
-    
-    modelMatrixTree *= transform3D::Scale(0.1, 0.1, 0.1);
-    modelMatrixTree *= transform3D::Translate(pos.x, 2, pos.z);  
-    RenderMesh(meshes["tree"], shaders["VertexColor"], modelMatrixTree);
-    modelMatrixTree *= transform3D::Translate(0, -3, 0);
-    modelMatrixTree *= transform3D::RotateOX(PI / 2);
-    //modelMatrixTree *= transform3D::Scale()
-    RenderMesh(meshes["trunk"], shaders["VertexColor"], modelMatrixTree);
+        modelMatrixCarNPC *= transform3D::Translate(translateX_NPC, 0, translateZ_NPC);
+
+
+        modelMatrixCarNPC *= transform3D::RotateOY(rotate_car_npc);
+        modelMatrixCarNPC *= transform3D::Translate(0, yCar * scaleCar, 0);
+        modelMatrixCarNPC *= transform3D::Scale(scaleCar * scaleCar, scaleCar * scaleCar, scaleCar * scaleCar);
+        RenderMesh(meshes["npc_car"], shaders["VertexColor"], modelMatrixCarNPC);
+    }
+
+    for(int i = 0; i < positions_trees.size() - 1; i++)
+    { // trb bagata in for
+        glm::mat4 modelMatrixTreeTrunk;
+        glm::vec3 pos = modelMatrix * glm::vec4(positions_trees.at(i), 1);
+        glm::mat4 modelMatrixTree = transform3D::Translate(pos.x, 0, pos.z);
+
+        modelMatrixTree *= transform3D::Scale(scaleTree / scaleRoad, scaleTree / scaleRoad, scaleTree / scaleRoad);
+        modelMatrixTree *= transform3D::Translate(0, scaleZTrunk * 2, 0); // -3
+
+        modelMatrixTreeTrunk = modelMatrixTree;
+        modelMatrixTreeTrunk *= transform3D::RotateOX(PI / 2);
+        modelMatrixTreeTrunk *= transform3D::Scale(1, 1, scaleZTrunk);
+        RenderMesh(meshes["trunk"], shaders["VertexColor"], modelMatrixTreeTrunk);
+        glm::mat4 modelMatrixTreeLeaves = modelMatrixTree;
+        yLeaves = 4;
+        modelMatrixTreeLeaves *= transform3D::Translate(0, yLeaves, 0);   // 2
+        RenderMesh(meshes["tree"], shaders["VertexColor"], modelMatrixTreeLeaves);
+
+    }
 
     
 }
