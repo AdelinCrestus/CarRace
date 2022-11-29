@@ -4,6 +4,18 @@
 #include "lab_m1/Tema2v1/lab_camera.h"
 #include "lab_m1/Tema2v1/transform3D.h"
 
+#define distRed 0.15
+#define distBlue 0.05
+#define distTree 0.25
+#define epsilon 0.0001
+#define dist_npc_car1 0.10
+#define dist_npc_car2 0.02
+#define SpeedNFC 4 
+#define SpeedPlayerMAX 5
+#define NR_Vertices_Circle 7
+#define PI 3.1415
+#define RCar 2
+#define NR_NFC_Cars 2
 
 
 namespace m1
@@ -81,6 +93,8 @@ namespace m1
         float yLeaves;
         float scaleZTrunk;
         float scaleTree;
+        float translateX_NPC[NR_NFC_Cars];
+        float translateZ_NPC[NR_NFC_Cars];
         
     };
 }   // namespace m1

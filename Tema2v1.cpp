@@ -9,18 +9,6 @@ using namespace m1;
 
 
 
-#define distRed 0.15
-#define distBlue 0.05
-#define distTree 0.25
-#define epsilon 0.0001
-#define dist_npc_car1 0.10
-#define dist_npc_car2 0.02
-#define SpeedNFC 4 
-#define SpeedPlayerMAX 5
-#define NR_Vertices_Circle 7
-#define PI 3.1415
-
-
 /*
  *  To find out more about `FrameStart`, `Update`, `FrameEnd`
  *  and the order in which they are called, see `world.cpp`.
@@ -31,6 +19,11 @@ struct Square
     Square(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3, glm::vec3 v4) : v1(v1), v2(v2), v3(v3), v4(v4) {};
     glm::vec3 v1, v2, v3, v4;
 };
+
+float distbt2points(glm::vec2 a, glm::vec2 b)
+{
+    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+}
 
 
 
@@ -468,49 +461,72 @@ void Tema2v1::Update(float deltaTimeSeconds)
     modelMatrix_car *= rotateCarMatrix; 
     modelMatrix_car *= transform3D::Scale(scaleCar, scaleCar, scaleCar); //0.1
     RenderMesh(meshes["car"], shaders["VertexColor"],modelMatrix_car);
-    for(int i = 0; i < 2; i++)
+    for(int i = 0; i < NR_NFC_Cars; i++)
     {//trb cu for
         glm::mat4 modelMatrixCarNPC = modelMatrix;
         int size = cars_npc[i].trajectory.size(); //car.trajectory.size();
         bool ultim = false;
-        if (cars_npc[i].indice_last_point + 1 == size - 1)
-        {
-            cars_npc[i].indice_last_point = 0;
-            ultim = true;
-        }
-        glm::vec3 dir = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1) - cars_npc[i].trajectory.at(cars_npc[i].indice_last_point);
         
-        cars_npc[i].fractiune_npc = cars_npc[i].fractiune_npc + deltaTimeSeconds * SpeedNFC;
+        float last_fractiune_npc = cars_npc[i].fractiune_npc;
+        float last_translateX = translateX_NPC[i];
+        float last_translateZ = translateZ_NPC[i];
+        int last_indice_last_point = cars_npc[i].indice_last_point;
+       
+        glm::vec3 dir;
+            if (cars_npc[i].indice_last_point + 1 == size - 1)
+            {
+                cars_npc[i].indice_last_point = 0;
+                ultim = true;
+            }
+            else {
+               dir = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1) - cars_npc[i].trajectory.at(cars_npc[i].indice_last_point);
+            }
+            cars_npc[i].fractiune_npc = cars_npc[i].fractiune_npc + deltaTimeSeconds * SpeedNFC;
+
+            if (cars_npc[i].fractiune_npc >= 1)
+            {
+                cars_npc[i].fractiune_npc = 0;
+                cars_npc[i].indice_last_point++;
+            }
         
-        if (cars_npc[i].fractiune_npc >= 1)
-        {    
-            cars_npc[i].fractiune_npc = 0;
-            cars_npc[i].indice_last_point++;
-        }
-        float translateX_NPC = 0;
-        float translateZ_NPC = 0;
-        float rotate_car_npc = glm::acos(glm::dot(glm::normalize(dir), glm::vec3(0, 0, 1)));
+        
+            float rotate_car_npc = 1;
         if (ultim)
         {
-            float translateX_NPC = cars_npc[i].trajectory.at(size - 1).x * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(0).x;
-            float translateZ_NPC = cars_npc[i].trajectory.at(size - 1).z * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(0).z;
+            dir = cars_npc[i].trajectory.at(0) - cars_npc[i].trajectory.at(size - 1);
+            translateX_NPC[i] = cars_npc[i].trajectory.at(size - 1).x * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(0).x;
+            translateZ_NPC[i] = cars_npc[i].trajectory.at(size - 1).z * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(0).z;
             ultim = false;
             if (cars_npc[i].trajectory.at(size - 1).z < median.z)
             {
-                rotate_car_npc *= -1;
+                rotate_car_npc = -1;
             }
         }
         else
         {
-            translateX_NPC = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point).x * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1).x;
-            translateZ_NPC = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point).z * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1).z;
+            translateX_NPC[i] = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point).x * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1).x;
+            translateZ_NPC[i] = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point).z * (1 - cars_npc[i].fractiune_npc) + cars_npc[i].fractiune_npc * cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1).z;
             if (cars_npc[i].trajectory.at(cars_npc[i].indice_last_point).z < median.z)
             {
-                rotate_car_npc *= -1;
+                rotate_car_npc = -1;
             }
         }
+        rotate_car_npc *= glm::acos(glm::dot(glm::normalize(dir), glm::vec3(0, 0, 1)));
+        glm::vec4 poz_obiect_compute = glm::inverse(modelMatrix) * glm::vec4(poz_obiect, 1);
+        float dist = distance(glm::vec3(translateX_NPC[i], 0, translateZ_NPC[i]), glm::vec3(poz_obiect_compute.x, 0, poz_obiect_compute.z));
+        //printf("(%f, %f)  - (%f, %f)\n", poz_obiect_compute.x, poz_obiect_compute.z, translateX_NPC[0], translateZ_NPC[0]);
+        //printf("dist[%d] = %f",i, dist);
+        if (dist < 2 * RCar * scaleCar * scaleCar)
+        {
+            //printf("intra\n");
+            cars_npc[i].fractiune_npc = last_fractiune_npc;
+            translateX_NPC[i] = last_translateX;
+            translateZ_NPC[i] = last_translateZ;
+            cars_npc[i].indice_last_point = last_indice_last_point;
+            
+        }
 
-        modelMatrixCarNPC *= transform3D::Translate(translateX_NPC, 0, translateZ_NPC);
+        modelMatrixCarNPC *= transform3D::Translate(translateX_NPC[i], 0, translateZ_NPC[i]);
 
 
         modelMatrixCarNPC *= transform3D::RotateOY(rotate_car_npc);
@@ -650,7 +666,7 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         float acc_frana = -2.5;
         if (window->KeyHold(GLFW_KEY_W)) {
             cameraSpeed = glm::min(cameraSpeed + deltaTime * acc, (float)SpeedPlayerMAX);
-            printf("W apasat\n");
+           // printf("W apasat\n");
         }
         else if (window->KeyHold(GLFW_KEY_S)) {
 
@@ -733,14 +749,28 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
             // TODO(student): Translate the camera forward
             if (in_triangles)
             {
-                camera->TranslateForward(cameraSpeed * deltaTime);
+                bool intersection = false;
+                for (int i = 0; i < NR_NFC_Cars; i++)
+                {
+                    
+                    glm::vec4 poz_obiect_compute = glm::inverse(modelMatrix) * glm::vec4(poz_obiect_viit, 1); // aplicam matricea inv pt a aduce coord camerei in coord pistei si a npc urilor
+                    float dist = distance(glm::vec3(translateX_NPC[i], 0, translateZ_NPC[i]), glm::vec3(poz_obiect_compute.x, 0, poz_obiect_compute.z));
+                    if ( dist <= 2 * RCar * scaleCar * scaleCar)
+                    {
+                        intersection = true;
+                        cameraSpeed = 0;
+                    }
 
-
-                poz_obiect = camera->GetTargetPosition();
+                }
+                if (!intersection)
+                {
+                    camera->TranslateForward(cameraSpeed * deltaTime);
+                    poz_obiect = camera->GetTargetPosition();
+                }
             }
             else
             {
-                printf("boule iesi pe camp cu ea la pascut\n");
+               // printf("boule iesi pe camp cu ea la pascut\n");
                 cameraSpeed = 0;
             }
         
