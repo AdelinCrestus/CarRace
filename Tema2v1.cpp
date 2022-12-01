@@ -20,12 +20,6 @@ struct Square
     glm::vec3 v1, v2, v3, v4;
 };
 
-float distbt2points(glm::vec2 a, glm::vec2 b)
-{
-    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
-}
-
-
 
 
 Tema2v1::Tema2v1()
@@ -40,17 +34,18 @@ Tema2v1::~Tema2v1()
 
 void Tema2v1::Init()
 {
+
     renderCameraTarget = false;
 
     rotateCarMatrix = glm::mat4(1);
     
     resolution = window->GetResolution();
-    
-    left = -5;
-    right = 5;
-    buttom = -5;
-    top = 5;
-    
+    distance_viewport = 4;
+    left = -1;
+    right = 1;
+    buttom = -1;
+    top = 1;
+    height_camera_ortho = 2;
     fov = RADIANS(60);
 
     cameraSpeed = 0;
@@ -201,7 +196,7 @@ void Tema2v1::Init()
         VertexFormat(glm::vec3(-1.93, 0, 0.65), color), // Q5
 
     };
-    
+
     vector<Segment> segments_track, segments_red, segments_blue;
     for (int i = 0; i < track_vertices.size() - 1; i++)
     {
@@ -386,7 +381,7 @@ void Tema2v1::Init()
     meshes["tree"]->SetDrawMode(GL_TRIANGLES);
     meshes["tree"]->InitFromData(tree_vertices, tree_indices);
 
-    projectionMatrix = glm::perspective(fov, window->props.aspectRatio, 0.01f, 200.0f);
+    
     scaleRoad = 10;
 
     median = glm::vec3(-0.8, 0, 0.2); // coordonatele din jumatea circuitului
@@ -401,11 +396,12 @@ void Tema2v1::Init()
     YCamera = 0.5;
     glm::vec4 orientare_camera = glm::vec4(track_vertices.at(2).position.x, track_vertices.at(2).position.y, track_vertices.at(2).position.z, 1);
     orientare_camera = modelMatrix * orientare_camera;
-    camera = new my_camera::Camera();
-    camera->Set(glm::vec3(start_camera) + glm::vec3(0,YCamera,0), glm::vec3(orientare_camera) + glm::vec3(0, YCamera, 0), glm::vec3(0, 1, 0));
+    camera_pers = new my_camera::Camera();
+    camera_ortho = new my_camera::Camera();
+    camera_pers->Set(glm::vec3(start_camera) + glm::vec3(0,YCamera,0), glm::vec3(orientare_camera) + glm::vec3(0, YCamera, 0), glm::vec3(0, 1, 0));
 
-    poz_obiect = camera->GetTargetPosition() * glm::vec3(1, 0, 1);
-    float initial_rotation_target = acos(glm::dot(camera->forward, glm::vec3(0, 0, -1)));
+    poz_obiect = camera_pers->GetTargetPosition() * glm::vec3(1, 0, 1);
+    float initial_rotation_target = acos(glm::dot(camera_pers->forward, glm::vec3(0, 0, -1)));
     rotateCarMatrix *= transform3D::RotateOY(-initial_rotation_target);
 
     scaleCar = 0.1;
@@ -441,56 +437,54 @@ void Tema2v1::FrameStart()
 
     scaleZTrunk = 2;
     scaleTree = 2;
-
 }
 
-
-void Tema2v1::Update(float deltaTimeSeconds)
+void Tema2v1::RenderScene(float deltaTimeSeconds)
 {
-
-   
     RenderMesh(meshes["grass"], shaders["VertexColor"], transform3D::Translate(-resolution.x / 2, -0.5, -resolution.y / 2));
-  
+
     RenderMesh(meshes["pista"], shaders["VertexColor"], modelMatrix);
 
-        
+
     glm::mat4 modelMatrix_car;
-    modelMatrix_car = transform3D::Translate(poz_obiect.x, 0, poz_obiect.z); 
-    
-    modelMatrix_car *= transform3D::Translate(0, yCar, 0); // 0.1005
-    modelMatrix_car *= rotateCarMatrix; 
-    modelMatrix_car *= transform3D::Scale(scaleCar, scaleCar, scaleCar); //0.1
-    RenderMesh(meshes["car"], shaders["VertexColor"],modelMatrix_car);
-    for(int i = 0; i < NR_NFC_Cars; i++)
-    {//trb cu for
+
+    modelMatrix_car = transform3D::Translate(poz_obiect.x, 0, poz_obiect.z);
+
+    modelMatrix_car *= transform3D::Translate(0, yCar, 0);
+    modelMatrix_car *= rotateCarMatrix;
+    modelMatrix_car *= transform3D::Scale(scaleCar, scaleCar, scaleCar);
+    RenderMesh(meshes["car"], shaders["VertexColor"], modelMatrix_car);
+    for (int i = 0; i < NR_NFC_Cars; i++)
+    {
         glm::mat4 modelMatrixCarNPC = modelMatrix;
-        int size = cars_npc[i].trajectory.size(); //car.trajectory.size();
+        int size = cars_npc[i].trajectory.size();
         bool ultim = false;
-        
+
         float last_fractiune_npc = cars_npc[i].fractiune_npc;
         float last_translateX = translateX_NPC[i];
         float last_translateZ = translateZ_NPC[i];
         int last_indice_last_point = cars_npc[i].indice_last_point;
-       
-        glm::vec3 dir;
-            if (cars_npc[i].indice_last_point + 1 == size - 1)
-            {
-                cars_npc[i].indice_last_point = 0;
-                ultim = true;
-            }
-            else {
-               dir = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1) - cars_npc[i].trajectory.at(cars_npc[i].indice_last_point);
-            }
-            cars_npc[i].fractiune_npc = cars_npc[i].fractiune_npc + deltaTimeSeconds * SpeedNFC;
 
-            if (cars_npc[i].fractiune_npc >= 1)
-            {
-                cars_npc[i].fractiune_npc = 0;
-                cars_npc[i].indice_last_point++;
-            }
-        
-        
-            float rotate_car_npc = 1;
+
+        glm::vec3 dir;
+        if (cars_npc[i].indice_last_point + 1 == size - 1)
+        {
+            cars_npc[i].indice_last_point = 0;
+            ultim = true;
+        }
+        else {
+            dir = cars_npc[i].trajectory.at(cars_npc[i].indice_last_point + 1) - cars_npc[i].trajectory.at(cars_npc[i].indice_last_point);
+        }
+        cars_npc[i].fractiune_npc = cars_npc[i].fractiune_npc + deltaTimeSeconds * SpeedNFC;
+
+        if (cars_npc[i].fractiune_npc >= 1)
+        {
+            cars_npc[i].fractiune_npc = 0;
+            cars_npc[i].indice_last_point++;
+        }
+
+
+        float rotate_car_npc = 1;
         if (ultim)
         {
             dir = cars_npc[i].trajectory.at(0) - cars_npc[i].trajectory.at(size - 1);
@@ -511,6 +505,7 @@ void Tema2v1::Update(float deltaTimeSeconds)
                 rotate_car_npc = -1;
             }
         }
+
         rotate_car_npc *= glm::acos(glm::dot(glm::normalize(dir), glm::vec3(0, 0, 1)));
         glm::vec4 poz_obiect_compute = glm::inverse(modelMatrix) * glm::vec4(poz_obiect, 1);
         float dist = distance(glm::vec3(translateX_NPC[i], 0, translateZ_NPC[i]), glm::vec3(poz_obiect_compute.x, 0, poz_obiect_compute.z));
@@ -523,8 +518,9 @@ void Tema2v1::Update(float deltaTimeSeconds)
             translateX_NPC[i] = last_translateX;
             translateZ_NPC[i] = last_translateZ;
             cars_npc[i].indice_last_point = last_indice_last_point;
-            
+
         }
+
 
         modelMatrixCarNPC *= transform3D::Translate(translateX_NPC[i], 0, translateZ_NPC[i]);
 
@@ -535,7 +531,7 @@ void Tema2v1::Update(float deltaTimeSeconds)
         RenderMesh(meshes["npc_car"], shaders["VertexColor"], modelMatrixCarNPC);
     }
 
-    for(int i = 0; i < positions_trees.size() - 1; i++)
+    for (int i = 0; i < positions_trees.size() - 1; i++)
     { // trb bagata in for
         glm::mat4 modelMatrixTreeTrunk;
         glm::vec3 pos = modelMatrix * glm::vec4(positions_trees.at(i), 1);
@@ -554,6 +550,34 @@ void Tema2v1::Update(float deltaTimeSeconds)
         RenderMesh(meshes["tree"], shaders["VertexColor"], modelMatrixTreeLeaves);
 
     }
+
+}
+
+
+void Tema2v1::Update(float deltaTimeSeconds)
+{
+
+    projectionMatrix = glm::perspective(fov, window->props.aspectRatio, 0.01f, 200.0f);
+    camera = camera_pers;
+    RenderScene(deltaTimeSeconds);
+
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    glViewport(resolution.x -  resolution.x/4.0f - 10, 10, resolution.x/4.0f, resolution.y/4.0f);
+   
+    left = -distance_viewport;
+    right = distance_viewport;
+    float height = (right - left) * float(resolution.y) / resolution.x;
+    top = height / 2;
+    buttom = -height / 2;
+
+    projectionMatrix = glm::ortho(left, right, buttom, top, ZNear, ZFar);
+    
+    
+
+    camera_ortho->Set(poz_obiect * glm::vec3(1, 0, 1) + glm::vec3(0, height_camera_ortho, 0), poz_obiect * glm::vec3(1, 0, 1), glm::vec3(0, 0, +1));
+    camera = camera_ortho;
+    RenderScene(deltaTimeSeconds);
 
     
 }
@@ -663,23 +687,31 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         float cameraSpeedRotate = 2.0f;
         float acc = 3; 
         float dec_acc = -1;
-        float acc_frana = -2.5;
+        float acc_frana = -2.75;
         if (window->KeyHold(GLFW_KEY_W)) {
             cameraSpeed = glm::min(cameraSpeed + deltaTime * acc, (float)SpeedPlayerMAX);
            // printf("W apasat\n");
         }
         else if (window->KeyHold(GLFW_KEY_S)) {
 
-            cameraSpeed = glm::max(cameraSpeed + deltaTime * acc_frana, float(-SpeedPlayerMAX));
+            
+            if (cameraSpeed > 0)
+            {
+                cameraSpeed = glm::max(cameraSpeed + deltaTime * (acc_frana + dec_acc), float(-SpeedPlayerMAX));
+            }
+            else
+            {
+                cameraSpeed = glm::max(cameraSpeed + deltaTime * acc_frana, float(-SpeedPlayerMAX));
+            }
         }
         else
         {
             cameraSpeed = glm::max(cameraSpeed + deltaTime * dec_acc, 0.0f);
         }
 
-        printf("vit = %f\n", cameraSpeed);
+        printf("viteza = %f\n", cameraSpeed);
 
-            glm::vec3 poz_obiect_viit = camera->GetTargetPosition() + glm::normalize(camera->forward) * cameraSpeed * deltaTime;
+            glm::vec3 poz_obiect_viit = camera_pers->GetTargetPosition() + glm::normalize(camera_pers->forward) * cameraSpeed * deltaTime;
             bool in_zone;
             vector<Square> patrate;
             for (int i = 0; i < red_and_blue_vertices_track.size() - 3; i+= 2)
@@ -764,8 +796,8 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
                 }
                 if (!intersection)
                 {
-                    camera->TranslateForward(cameraSpeed * deltaTime);
-                    poz_obiect = camera->GetTargetPosition();
+                    camera_pers->TranslateForward(cameraSpeed * deltaTime);
+                    poz_obiect = camera_pers->GetTargetPosition();
                 }
             }
             else
@@ -778,7 +810,7 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         if (window->KeyHold(GLFW_KEY_A)) {
             // TODO(student): Translate the camera to the left
             //camera->TranslateRight(-cameraSpeed * deltaTime);
-            camera->RotateThirdPerson_OY(cameraSpeedRotate * deltaTime);
+            camera_pers->RotateThirdPerson_OY(cameraSpeedRotate * deltaTime);
             rotateCarMatrix *= transform3D::RotateOY( cameraSpeedRotate * deltaTime);
             
         }
@@ -789,7 +821,7 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
             // TODO(student): Translate the camera to the right
             //camera->TranslateRight(cameraSpeed * deltaTime);
 
-            camera->RotateThirdPerson_OY(- cameraSpeedRotate * deltaTime);
+            camera_pers->RotateThirdPerson_OY(- cameraSpeedRotate * deltaTime);
             rotateCarMatrix *= transform3D::RotateOY(-cameraSpeedRotate * deltaTime);
         }
         /*
@@ -804,7 +836,7 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         }
         */
     }
-    else
+    /*else
     {
     float cameraSpeed = 2.0f;
 
@@ -842,6 +874,7 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
 
     // TODO(student): Change projection parameters. Declare any extra
     // variables you might need in the class header. Inspect this file
+// 
     // for any hardcoded projection arguments (can you find any?) and
     // replace them with those extra variables.
 
@@ -871,7 +904,7 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         projectionMatrix = glm::ortho(left, right, buttom, top, 0.01f, 200.0f);
     }
 
-    
+    */
 
 }
 
@@ -879,6 +912,7 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
 void Tema2v1::OnKeyPress(int key, int mods)
 {
     // Add key press event
+    /*
     if (key == GLFW_KEY_T)
     {
         renderCameraTarget = !renderCameraTarget;
@@ -894,7 +928,7 @@ void Tema2v1::OnKeyPress(int key, int mods)
     {
         projectionMatrix = glm::perspective(fov, window->props.aspectRatio, 0.01f, 200.0f);
     }
-
+    */
 
 }
 
@@ -908,7 +942,7 @@ void Tema2v1::OnKeyRelease(int key, int mods)
 void Tema2v1::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
 {
     // Add mouse move event
-   
+   /*
     if (window->MouseHold(GLFW_MOUSE_BUTTON_LEFT))
     {
         float sensivityOX = 0.001f;
@@ -933,7 +967,7 @@ void Tema2v1::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
             camera->RotateThirdPerson_OY(sensivityOY * deltaX);
         }
     }
-    
+    */
     
 }
 

@@ -3,19 +3,24 @@
 #include "components/simple_scene.h"
 #include "lab_m1/Tema2v1/lab_camera.h"
 #include "lab_m1/Tema2v1/transform3D.h"
+#include "components/text_renderer.h"
 
 #define distRed 0.15
 #define distBlue 0.05
 #define distTree 0.25
 #define epsilon 0.0001
+#define eroare_curba 0.01
 #define dist_npc_car1 0.10
 #define dist_npc_car2 0.02
-#define SpeedNFC 4 
+#define SpeedNFC 3
 #define SpeedPlayerMAX 5
 #define NR_Vertices_Circle 7
 #define PI 3.1415
 #define RCar 2
 #define NR_NFC_Cars 2
+#define Dim_ortho 10
+#define ZNear 0.001f
+#define ZFar 100.0f
 
 
 namespace m1
@@ -44,11 +49,13 @@ namespace m1
         void OnMouseScroll(int mouseX, int mouseY, int offsetX, int offsetY) override;
         void OnWindowResize(int width, int height) override;
         
-
+        void RenderScene(float deltaTimeSeconds);
      protected:
         my_camera::Camera *camera;
         glm::mat4 projectionMatrix;
         bool renderCameraTarget;
+        my_camera::Camera* camera_pers;
+        my_camera::Camera* camera_ortho;
 
         // TODO(student): If you need any other class variables, define them here.
         float left, right, buttom, top;
@@ -95,6 +102,8 @@ namespace m1
         float scaleTree;
         float translateX_NPC[NR_NFC_Cars];
         float translateZ_NPC[NR_NFC_Cars];
+        float height_camera_ortho;
+        float distance_viewport;
         
     };
 }   // namespace m1
