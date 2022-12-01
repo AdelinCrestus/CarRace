@@ -14,11 +14,6 @@ using namespace m1;
  *  and the order in which they are called, see `world.cpp`.
  */
 
-struct Square
-{
-    Square(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3, glm::vec3 v4) : v1(v1), v2(v2), v3(v3), v4(v4) {};
-    glm::vec3 v1, v2, v3, v4;
-};
 
 
 
@@ -417,6 +412,56 @@ void Tema2v1::Init()
         shader->CreateAndLink();
         shaders[shader->GetName()] = shader;
     }
+
+    resolution = window->GetResolution();
+    Square* sq1 = new Square(glm::vec3(0, 0, 0), glm::vec3(0, 0, 30),
+        glm::vec3(30, 0, 30), glm::vec3(30, 0, 0));
+    coada_patrate.push(sq1);
+    while (coada_patrate.size() < 16384) // 4^7
+    {
+        Square* sq = coada_patrate.front();
+        coada_patrate.pop();
+        float l = sq->v2.z - sq->v1.z;
+        //printf("l = %f\n", l);
+        Square *sq1 = new Square(sq->v1, sq->v1 + glm::vec3(0, 0, l / 2), sq->v1 + glm::vec3(l / 2, 0, l / 2), sq->v1 + glm::vec3(l / 2, 0, 0));
+        Square *sq2 = new Square(sq1->v2, sq->v2, sq->v2 + glm::vec3(l / 2, 0, 0), sq1->v3);
+        Square *sq3 = new Square(sq1->v3, sq2->v3, sq->v3, sq->v3 - glm::vec3(0, 0, l / 2));
+        Square* sq4 = new Square(sq1->v4, sq1->v3, sq3->v4, sq->v4);
+        coada_patrate.push(sq1);
+        coada_patrate.push(sq2);
+        coada_patrate.push(sq3);
+        coada_patrate.push(sq4);
+    }
+    vector<VertexFormat> grass_vertices;
+    glm::vec3 culoare_iarba = glm::vec3(0, 1, 0);
+    vector<unsigned int> grass_indices;
+    grass_index = 0;
+    
+    while (coada_patrate.size() > 0)
+    {
+        Square* sq = coada_patrate.front();
+        coada_patrate.pop();
+        grass_vertices.push_back(VertexFormat(sq->v1, culoare_iarba));
+        grass_vertices.push_back(VertexFormat(sq->v2, culoare_iarba));
+        grass_vertices.push_back(VertexFormat(sq->v3, culoare_iarba));
+        grass_vertices.push_back(VertexFormat(sq->v4, culoare_iarba));
+        grass_indices.push_back(grass_index);
+        grass_indices.push_back(grass_index + 3);
+        grass_indices.push_back(grass_index + 1);
+        grass_indices.push_back(grass_index + 1);
+        grass_indices.push_back(grass_index + 3);
+        grass_indices.push_back(grass_index + 2);
+        grass_index += 4;
+    }
+
+    /*for (int i = 0; i < grass_vertices.size(); i++)
+    {
+        printf("(%f, %f, %f) \n", grass_vertices.at(i).position.x, grass_vertices.at(i).position.y, grass_vertices.at(i).position.z);
+    }*/
+    meshes["grass"] = new Mesh("grass");
+   meshes["grass"]->SetDrawMode(GL_TRIANGLES);
+   meshes["grass"]->InitFromData(grass_vertices, grass_indices);
+    
 }
 
 
@@ -428,20 +473,20 @@ void Tema2v1::FrameStart()
 
     resolution = window->GetResolution();
    
-    vector<VertexFormat> grass_vertices
-    {
-        VertexFormat(glm::vec3(0, 0, 0), glm::vec3(0,1,0)),
-        VertexFormat(glm::vec3(0, 0, resolution.y), glm::vec3(0,1,0)),
-        VertexFormat(glm::vec3(resolution.x, 0, resolution.y), glm::vec3(0,1,0)),
-        VertexFormat(glm::vec3(resolution.x, 0, 0), glm::vec3(0,1,0))
-    };
-    vector<unsigned int> grass_indices
-    {
-        0,2,1,0,3,2
-    };
-    meshes["grass"] = new Mesh("grass");
-    meshes["grass"]->SetDrawMode(GL_TRIANGLES);
-    meshes["grass"]->InitFromData(grass_vertices, grass_indices);
+    //vector<VertexFormat> grass_vertices
+    //{
+     //   VertexFormat(glm::vec3(0, 0, 0), glm::vec3(0,1,0)),
+     //   VertexFormat(glm::vec3(0, 0, resolution.y), glm::vec3(0,1,0)),
+    //    VertexFormat(glm::vec3(resolution.x, 0, resolution.y), glm::vec3(0,1,0)),
+     //   VertexFormat(glm::vec3(resolution.x, 0, 0), glm::vec3(0,1,0))
+   // };
+
+    
+    //vector<unsigned int> grass_indices
+    //{
+     //   0,2,1,0,3,2
+    //};
+   
     
     // Sets the screen area where to draw
     glViewport(0, 0, resolution.x, resolution.y);
@@ -451,9 +496,9 @@ void Tema2v1::FrameStart()
 
 void Tema2v1::RenderScene(float deltaTimeSeconds)
 {
-    //RenderMesh(meshes["grass"], shaders["MyShader"], transform3D::Translate(-resolution.x / 2, 0, -resolution.y / 2), poz_obiect);
+    RenderMesh(meshes["grass"], shaders["MyShader"], transform3D::Translate(-30.0 / 2, -0.035, -30.0 / 2), poz_obiect);
 
-    glm::vec3 poz_obiect_compute_shader = /**lm::inverse(modelMatrix) */ glm::vec4(poz_obiect, 1);
+    glm::vec3 poz_obiect_compute_shader = glm::vec4(poz_obiect, 1);
 
     RenderMesh(meshes["pista"], shaders["MyShader"], modelMatrix, poz_obiect_compute_shader);
 
@@ -548,7 +593,7 @@ void Tema2v1::RenderScene(float deltaTimeSeconds)
         glm::mat4 modelMatrixTreeTrunk;
         glm::vec3 pos = modelMatrix * glm::vec4(positions_trees.at(i), 1);
         glm::mat4 modelMatrixTree = transform3D::Translate(pos.x, 0, pos.z);
-        yTrunk = 2;
+        yTrunk = 1.75;
         modelMatrixTree *= transform3D::Scale(scaleTree / scaleRoad, scaleTree / scaleRoad, scaleTree / scaleRoad);
         modelMatrixTree *= transform3D::Translate(0, scaleZTrunk * yTrunk, 0); // -3
 

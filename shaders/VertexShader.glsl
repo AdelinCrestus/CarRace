@@ -17,7 +17,7 @@ void main()
 {
 	frag_color = v_color;
 
-	vec3 poz_car3 = (vec4(poz_car,1)).xyz * vec3(1,0,1);
+	vec3 poz_car3 = poz_car * vec3(1,0,1);
 	vec3 v_position_comp = (Model*vec4(v_position,1)).xyz;
 	vec3 v_position_comp_y0 = v_position_comp * vec3(1,0,1);
 	vec3 dist = poz_car3 - v_position_comp_y0;

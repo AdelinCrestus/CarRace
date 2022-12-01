@@ -4,6 +4,7 @@
 #include "lab_m1/Tema2v1/lab_camera.h"
 #include "lab_m1/Tema2v1/transform3D.h"
 #include "components/text_renderer.h"
+#include <queue>
 
 #define distRed 0.15
 #define distBlue 0.05
@@ -22,6 +23,11 @@
 #define ZNear 0.001f
 #define ZFar 100.0f
 
+struct Square
+{
+    Square(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3, glm::vec3 v4) : v1(v1), v2(v2), v3(v3), v4(v4) {};
+    glm::vec3 v1, v2, v3, v4;
+};
 
 namespace m1
 {
@@ -106,6 +112,9 @@ namespace m1
         float distance_viewport;
 
         float scaleFactor;
-        
+
+        std::queue <Square *> coada_patrate;
+
+        int grass_index;
     };
 }   // namespace m1
