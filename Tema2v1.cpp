@@ -322,7 +322,7 @@ void Tema2v1::Init()
         3, 4, 1, // DEB
         3, 5, 4,  // DFE
         7, 5, 4,  //HFE
-        7, 5, 6, //HFG
+        7, 4, 6, //HEG
         2, 6, 0, //CGA
         2, 7, 6, //CHG
         2, 3, 5, //CDF
@@ -392,7 +392,7 @@ void Tema2v1::Init()
     glm::vec4 start_camera = glm::vec4(track_vertices.at(0).position.x, track_vertices.at(0).position.y, track_vertices.at(0).position.z,1);
     start_camera = modelMatrix * start_camera;
 
-    yCar = 0.1001;
+    yCar = 1;
     YCamera = 0.5;
     glm::vec4 orientare_camera = glm::vec4(track_vertices.at(2).position.x, track_vertices.at(2).position.y, track_vertices.at(2).position.z, 1);
     orientare_camera = modelMatrix * orientare_camera;
@@ -401,11 +401,22 @@ void Tema2v1::Init()
     camera_pers->Set(glm::vec3(start_camera) + glm::vec3(0,YCamera,0), glm::vec3(orientare_camera) + glm::vec3(0, YCamera, 0), glm::vec3(0, 1, 0));
 
     poz_obiect = camera_pers->GetTargetPosition() * glm::vec3(1, 0, 1);
-    float initial_rotation_target = acos(glm::dot(camera_pers->forward, glm::vec3(0, 0, -1)));
-    rotateCarMatrix *= transform3D::RotateOY(-initial_rotation_target);
+    float initial_rotation_target = acos(glm::dot(camera_pers->forward, glm::vec3(0, 0, 1)));
+    rotateCarMatrix *= transform3D::RotateOY(initial_rotation_target);
 
     scaleCar = 0.1;
-    
+    scaleFactor = 0;
+
+    scaleZTrunk = 2;
+    scaleTree = 2;
+
+    {
+        Shader* shader = new Shader("MyShader");
+        shader->AddShader(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M1, "Tema2v1", "shaders", "VertexShader.glsl"), GL_VERTEX_SHADER);
+        shader->AddShader(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M1, "Tema2v1", "shaders", "FragmentShader.glsl"), GL_FRAGMENT_SHADER);
+        shader->CreateAndLink();
+        shaders[shader->GetName()] = shader;
+    }
 }
 
 
@@ -435,25 +446,26 @@ void Tema2v1::FrameStart()
     // Sets the screen area where to draw
     glViewport(0, 0, resolution.x, resolution.y);
 
-    scaleZTrunk = 2;
-    scaleTree = 2;
+    
 }
 
 void Tema2v1::RenderScene(float deltaTimeSeconds)
 {
-    RenderMesh(meshes["grass"], shaders["VertexColor"], transform3D::Translate(-resolution.x / 2, -0.5, -resolution.y / 2));
+    //RenderMesh(meshes["grass"], shaders["MyShader"], transform3D::Translate(-resolution.x / 2, 0, -resolution.y / 2), poz_obiect);
 
-    RenderMesh(meshes["pista"], shaders["VertexColor"], modelMatrix);
+    glm::vec3 poz_obiect_compute_shader = /**lm::inverse(modelMatrix) */ glm::vec4(poz_obiect, 1);
+
+    RenderMesh(meshes["pista"], shaders["MyShader"], modelMatrix, poz_obiect_compute_shader);
 
 
     glm::mat4 modelMatrix_car;
 
     modelMatrix_car = transform3D::Translate(poz_obiect.x, 0, poz_obiect.z);
 
-    modelMatrix_car *= transform3D::Translate(0, yCar, 0);
+    modelMatrix_car *= transform3D::Translate(0, yCar * scaleCar, 0);
     modelMatrix_car *= rotateCarMatrix;
     modelMatrix_car *= transform3D::Scale(scaleCar, scaleCar, scaleCar);
-    RenderMesh(meshes["car"], shaders["VertexColor"], modelMatrix_car);
+    RenderMesh(meshes["car"], shaders["MyShader"], modelMatrix_car, poz_obiect_compute_shader);
     for (int i = 0; i < NR_NFC_Cars; i++)
     {
         glm::mat4 modelMatrixCarNPC = modelMatrix;
@@ -511,7 +523,7 @@ void Tema2v1::RenderScene(float deltaTimeSeconds)
         float dist = distance(glm::vec3(translateX_NPC[i], 0, translateZ_NPC[i]), glm::vec3(poz_obiect_compute.x, 0, poz_obiect_compute.z));
         //printf("(%f, %f)  - (%f, %f)\n", poz_obiect_compute.x, poz_obiect_compute.z, translateX_NPC[0], translateZ_NPC[0]);
         //printf("dist[%d] = %f",i, dist);
-        if (dist < 2 * RCar * scaleCar * scaleCar)
+        if (dist < 2 * RCar * scaleCar / scaleRoad)
         {
             //printf("intra\n");
             cars_npc[i].fractiune_npc = last_fractiune_npc;
@@ -526,9 +538,9 @@ void Tema2v1::RenderScene(float deltaTimeSeconds)
 
 
         modelMatrixCarNPC *= transform3D::RotateOY(rotate_car_npc);
-        modelMatrixCarNPC *= transform3D::Translate(0, yCar * scaleCar, 0);
-        modelMatrixCarNPC *= transform3D::Scale(scaleCar * scaleCar, scaleCar * scaleCar, scaleCar * scaleCar);
-        RenderMesh(meshes["npc_car"], shaders["VertexColor"], modelMatrixCarNPC);
+        modelMatrixCarNPC *= transform3D::Translate(0, yCar * scaleCar/scaleRoad, 0);
+        modelMatrixCarNPC *= transform3D::Scale(scaleCar / scaleRoad, scaleCar / scaleRoad, scaleCar / scaleRoad);
+        RenderMesh(meshes["npc_car"], shaders["MyShader"], modelMatrixCarNPC, poz_obiect_compute_shader);
     }
 
     for (int i = 0; i < positions_trees.size() - 1; i++)
@@ -536,18 +548,18 @@ void Tema2v1::RenderScene(float deltaTimeSeconds)
         glm::mat4 modelMatrixTreeTrunk;
         glm::vec3 pos = modelMatrix * glm::vec4(positions_trees.at(i), 1);
         glm::mat4 modelMatrixTree = transform3D::Translate(pos.x, 0, pos.z);
-
+        yTrunk = 2;
         modelMatrixTree *= transform3D::Scale(scaleTree / scaleRoad, scaleTree / scaleRoad, scaleTree / scaleRoad);
-        modelMatrixTree *= transform3D::Translate(0, scaleZTrunk * 2, 0); // -3
+        modelMatrixTree *= transform3D::Translate(0, scaleZTrunk * yTrunk, 0); // -3
 
         modelMatrixTreeTrunk = modelMatrixTree;
         modelMatrixTreeTrunk *= transform3D::RotateOX(PI / 2);
         modelMatrixTreeTrunk *= transform3D::Scale(1, 1, scaleZTrunk);
-        RenderMesh(meshes["trunk"], shaders["VertexColor"], modelMatrixTreeTrunk);
+        RenderMesh(meshes["trunk"], shaders["MyShader"], modelMatrixTreeTrunk, poz_obiect_compute_shader);
         glm::mat4 modelMatrixTreeLeaves = modelMatrixTree;
         yLeaves = 4;
         modelMatrixTreeLeaves *= transform3D::Translate(0, yLeaves, 0);   // 2
-        RenderMesh(meshes["tree"], shaders["VertexColor"], modelMatrixTreeLeaves);
+        RenderMesh(meshes["tree"], shaders["MyShader"], modelMatrixTreeLeaves, poz_obiect_compute_shader);
 
     }
 
@@ -589,13 +601,17 @@ void Tema2v1::FrameEnd()
 }
 
 
-void Tema2v1::RenderMesh(Mesh * mesh, Shader * shader, const glm::mat4 & modelMatrix)
+void Tema2v1::RenderMesh(Mesh * mesh, Shader * shader, const glm::mat4 & modelMatrix, glm::vec3 &poz_car)
 {
     if (!mesh || !shader || !shader->program)
         return;
 
     // Render an object using the specified shader and the specified position
     shader->Use();
+    int location = glGetUniformLocation(shader->GetProgramID(), "poz_car");
+    glUniform3fv(location, 1, glm::value_ptr(poz_car));
+    location = glGetUniformLocation(shader->GetProgramID(), "scaleFactor");
+    glUniform1f(location, scaleFactor);
     glUniformMatrix4fv(shader->loc_view_matrix, 1, GL_FALSE, glm::value_ptr(camera->GetViewMatrix()));
     glUniformMatrix4fv(shader->loc_projection_matrix, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
     glUniformMatrix4fv(shader->loc_model_matrix, 1, GL_FALSE, glm::value_ptr(modelMatrix));
@@ -688,6 +704,16 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         float acc = 3; 
         float dec_acc = -1;
         float acc_frana = -2.75;
+        float sensitive = 0.01f;
+        if (window->KeyHold(GLFW_KEY_M))
+        {
+            scaleFactor += sensitive * deltaTime;
+        }
+        if (window->KeyHold(GLFW_KEY_N))
+        {
+            scaleFactor -= sensitive * deltaTime;
+        }
+        printf("scaleFactor = %f\n", scaleFactor);
         if (window->KeyHold(GLFW_KEY_W)) {
             cameraSpeed = glm::min(cameraSpeed + deltaTime * acc, (float)SpeedPlayerMAX);
            // printf("W apasat\n");
@@ -836,39 +862,39 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         }
         */
     }
-    /*else
+   else
     {
     float cameraSpeed = 2.0f;
 
     if (window->KeyHold(GLFW_KEY_W)) {
         // TODO(student): Translate the camera forward
-        camera->TranslateForward(cameraSpeed * deltaTime);
+        camera_pers->TranslateForward(cameraSpeed * deltaTime);
     }
 
     if (window->KeyHold(GLFW_KEY_A)) {
         // TODO(student): Translate the camera to the left
-        camera->TranslateRight(-cameraSpeed * deltaTime);
+        camera_pers->TranslateRight(-cameraSpeed * deltaTime);
     }
 
     if (window->KeyHold(GLFW_KEY_S)) {
         // TODO(student): Translate the camera backward
-        camera->TranslateForward(-cameraSpeed * deltaTime);
+        camera_pers->TranslateForward(-cameraSpeed * deltaTime);
 
     }
 
     if (window->KeyHold(GLFW_KEY_D)) {
         // TODO(student): Translate the camera to the right
-        camera->TranslateRight(cameraSpeed * deltaTime);
+        camera_pers->TranslateRight(cameraSpeed * deltaTime);
     }
 
     if (window->KeyHold(GLFW_KEY_Q)) {
         // TODO(student): Translate the camera downward
-        camera->TranslateUpward(-cameraSpeed * deltaTime);
+        camera_pers->TranslateUpward(-cameraSpeed * deltaTime);
     }
 
     if (window->KeyHold(GLFW_KEY_E)) {
         // TODO(student): Translate the camera upward
-        camera->TranslateUpward(cameraSpeed * deltaTime);
+        camera_pers->TranslateUpward(cameraSpeed * deltaTime);
     }
  }
 
@@ -904,7 +930,7 @@ void Tema2v1::OnInputUpdate(float deltaTime, int mods)
         projectionMatrix = glm::ortho(left, right, buttom, top, 0.01f, 200.0f);
     }
 
-    */
+    
 
 }
 
@@ -942,7 +968,7 @@ void Tema2v1::OnKeyRelease(int key, int mods)
 void Tema2v1::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
 {
     // Add mouse move event
-   /*
+   
     if (window->MouseHold(GLFW_MOUSE_BUTTON_LEFT))
     {
         float sensivityOX = 0.001f;
@@ -954,8 +980,8 @@ void Tema2v1::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
             // OX and OY using `deltaX` and `deltaY`. Use the sensitivity
             // variables for setting up the rotation speed.
 
-            camera->RotateFirstPerson_OX(sensivityOX * deltaY);
-            camera->RotateFirstPerson_OY(sensivityOY * deltaX);
+            camera_pers->RotateFirstPerson_OX(sensivityOX * deltaY);
+            camera_pers->RotateFirstPerson_OY(sensivityOY * deltaX);
         }
 
         if (window->GetSpecialKeyState() & GLFW_MOD_CONTROL) {
@@ -963,11 +989,11 @@ void Tema2v1::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
             // TODO(student): Rotate the camera in third-person mode around
             // OX and OY using `deltaX` and `deltaY`. Use the sensitivity
             // variables for setting up the rotation speed.
-            camera->RotateThirdPerson_OX(sensivityOX * deltaY);
-            camera->RotateThirdPerson_OY(sensivityOY * deltaX);
+            camera_pers->RotateThirdPerson_OX(sensivityOX * deltaY);
+            camera_pers->RotateThirdPerson_OY(sensivityOY * deltaX);
         }
     }
-    */
+    
     
 }
 

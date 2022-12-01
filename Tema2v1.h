@@ -38,7 +38,7 @@ namespace m1
         void Update(float deltaTimeSeconds) override;
         void FrameEnd() override;
 
-        void RenderMesh(Mesh *mesh, Shader *shader, const glm::mat4 &modelMatrix) override;
+        void RenderMesh(Mesh *mesh, Shader *shader, const glm::mat4 &modelMatrix, glm::vec3 &pos_car);
 
         void OnInputUpdate(float deltaTime, int mods) override;
         void OnKeyPress(int key, int mods) override;
@@ -104,6 +104,8 @@ namespace m1
         float translateZ_NPC[NR_NFC_Cars];
         float height_camera_ortho;
         float distance_viewport;
+
+        float scaleFactor;
         
     };
 }   // namespace m1
